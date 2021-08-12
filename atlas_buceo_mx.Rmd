@@ -1,0 +1,437 @@
+---
+title: "Áreas Prioritarias para Conservación de Sitios de Buceo en Méx"
+resource_files:
+- "shp/Diving_sites_v1.0_01032021/dive_sites.shx"
+- "shp/Diving_sites_v1.0_01032021/dive_sites.prj"
+- "shp/Diving_sites_v1.0_01032021/dive_sites.dbf"
+- "shp/Diving_sites_v1.0_01032021/dive_sites.cpg"
+- "shp/Tourism_operators_v1.0_01032021/operators.cpg"
+- "shp/Tourism_operators_v1.0_01032021/operators.dbf"
+- "shp/Tourism_operators_v1.0_01032021/operators.prj"
+- "shp/Tourism_operators_v1.0_01032021/operators.qpj"
+- "shp/Tourism_operators_v1.0_01032021/operators.shx"
+- "shp/MPA_MX_v1.0_01032021/MPA_MX_c1-0.shx" 
+- "shp/MPA_MX_v1.0_01032021/MPA_MX_c1-0.prj" 
+- "shp/MPA_MX_v1.0_01032021/MPA_MX_c1-0.dbf" 
+
+runtime: shiny
+output:
+        flexdashboard::flex_dashboard:
+        source_code: embed
+        theme: bootstrap
+---
+
+Mapa General
+=======================================================================
+        
+```{r setup, include=FALSE}
+
+library(flexdashboard)
+library(leaflet)
+library(mapview)
+library(rgdal)
+library(sf)
+library(tidyverse)
+library(ggthemes)
+library(viridis)
+library(rnaturalearth)
+library(hrbrthemes)
+library(patchwork)
+library(RColorBrewer)
+library(lwgeom)
+library(units)
+library(shiny)
+
+
+# Loading diving site data and diving operators data ----------------
+
+ds <- raster::shapefile("shp/Diving_sites_v1.0_01032021/dive_sites.shp", verbose = FALSE)
+to <- raster::shapefile("shp/Tourism_operators_v1.0_01032021/operators.shp",encoding = "latin1", verbose = FALSE)
+
+# Loading MPA layer -------------------
+mpa <- raster::shapefile("shp/MPA_MX_v1.0_01032021/MPA_MX_c1-0.shp", encoding = "UTF-8", verbose = FALSE)
+
+
+```
+
+
+```{r}
+
+to$labels1 <- paste0(
+  "<h3 style= 'background-color:#87683a; color: white; text-align: center; font-size: 140%; font-family:Times New Roman'> Operador </h3>", 
+                     "<b style= 'color:#263270'> Región: </b> ", to$region, "<br/> ",
+                     "<b style= 'color:#263270'> Estado: </b> ", to$state, "<br/> ",
+                     "<b style= 'color:#263270'> Nombre: </b> ", to$company_na, "<br/> ",
+                     "<b style= 'color:#263270'> Latitud: </b> ", to$lat, "<br/> ",
+                     "<b style= 'color:#263270'> Longitud: </b> ", to$long, "<br/> ",
+                     "<b style= 'color:#263270'> Dirección: </b> ", to$address, "<br/> ",
+                     "<b style= 'color:#263270'> Telefono: </b> ", to$phone, "<br/> ",
+                     "<b style= 'color:#263270'> Correo: </b> ", to$email, "<br/> ") %>%
+        lapply(htmltools::HTML)
+
+ds$labels2 <- paste0(
+  "<h3 style= 'background-color:#4a3a87; color: white; text-align: center; font-size: 140%; font-family:Times New Roman'> Sitio de Buceo </h3>", 
+                     "<b style= 'color:#263270'> Nombre: </b> ", ds$site_name, "<br/> ",
+                     "<b style= 'color:#263270'> Región: </b> ", ds$region, "<br/> ",
+                     "<b style= 'color:#263270'> Localidad: </b> ", ds$locality, "<br/> ",
+                     "<b style= 'color:#263270'> Estado: </b> ", ds$state, "<br/> ",
+                     "<b style= 'color:#263270'> Popularidad: </b> ", ds$popularity, "<br/> ",
+                     "<b style= 'color:#263270'> Latitud: </b> ", ds$latitude, "<br/> ",
+                     "<b style= 'color:#263270'> Longitud: </b> ", ds$longitude, "<br/> ") %>%
+        lapply(htmltools::HTML)
+
+
+mpa$labels3 <- paste0("<h3 style= 'background-color:#3a875a; color: white; text-align: center; font-size: 150%; font-family:Times New Roman'> AMP </h3>", 
+                      "<b style= 'color:#263270'> Nombre: </b> ", mpa$ANP, "<br/> ",
+                      "<b style= 'color:#263270'>Plan de Manejo: </b> ", "<a href =\"", mpa$PM_link, "\", target=\"_blank\"> PDF </a>" ,   "<br/> ",
+                      "<b style= 'color:#263270'>Fecha: </b> ", mpa$FECHA, "<br/> ",
+                      "<b style= 'color:#263270'> Zona: </b> ", mpa$Categor, "<br/> ",
+                      "<b style= 'color:#263270'> Subzona: </b> ", mpa$Subznfc, "<br/> ",
+                      "<b style= 'color:#263270'> Buceo: </b> ", mpa$Buceo, "<br/> ",
+                      "<b style= 'color:#263270'> Pesca: </b> ", mpa$Pesca, "<br/> ") %>%
+        lapply(htmltools::HTML)
+
+
+#Create Diving Sites' marker
+diverIcon <- makeIcon(
+  iconUrl = "icons/Media/diver.png",
+  iconWidth = 30, iconHeight = 30,
+  iconAnchorX = 0, iconAnchorY = 0 
+)
+#Create Operators' marker
+operIcon <- makeIcon(
+    iconUrl = "icons/Media/sotre.png",
+  iconWidth = 40, iconHeight = 40,
+  iconAnchorX = 0, iconAnchorY = 0 
+)
+
+
+icons <- awesomeIcons(
+        icon = 'flag-outline',
+        iconColor = 'black',
+        library = 'ion')
+
+
+leaflet(to) %>%
+        addProviderTiles(providers$Esri.WorldImagery, group = "Satélite") %>%
+        addProviderTiles(providers$Esri.WorldTopoMap, group = "Mapa") %>%
+        addProviderTiles(providers$Esri.OceanBasemap, group = "Océano") %>%
+
+        setView(lat =  21.601093,
+                lng = -100.739661,
+                zoom = 5) %>%
+        addMarkers(
+                popup = ~ labels1,
+                group = "Operadores",
+                icon = operIcon
+        ) %>%
+        addPolygons(
+                data = mpa,
+                group = "AMPs",
+                weight = 2,
+                opacity = 1,
+
+                fillColor = "magma",
+                fillOpacity = 0.3,
+                color = "black",
+                dashArray = "2",
+                highlightOptions = highlightOptions(
+                        color = "#fc0330",
+                        weight = 2,
+                        bringToFront = TRUE
+                ),
+                popup = ~ labels3, 
+        ) %>%
+ 
+        
+        addMarkers(
+                icon = diverIcon,#Add diving flag as marker
+                clusterOptions = markerClusterOptions(),
+                data = ds, 
+                group = "Sitios de Buceo",
+                popup = ~ labels2
+        ) %>% 
+        # Layers control
+        addLayersControl(
+                baseGroups = c("Satélite", "Mapa", "Ocean"),
+                overlayGroups = c("Operadores", "AMPs", "Sitios de Buceo"),
+                options = layersControlOptions(collapsed = TRUE)
+        ) %>%
+        setView(lat =  21.601093,
+                lng = -100.739661,
+                zoom = 5) %>% 
+
+
+    addMiniMap(
+  position = "bottomright",
+  width = 140,
+  height = 140,
+  collapsedWidth = 19,
+  collapsedHeight = 19,
+  zoomLevelOffset = -5,
+  zoomLevelFixed = FALSE,
+  centerFixed = FALSE,
+  zoomAnimation = TRUE,
+  toggleDisplay = TRUE,
+  autoToggleDisplay = FALSE,
+  minimized = FALSE,
+  aimingRectOptions = list(color = "#ff7800", weight = 1, clickable = FALSE),
+  shadowRectOptions = list(color = "#000000", weight = 1, clickable = FALSE, opacity =
+    0, fillOpacity = 0),
+  strings = list(hideText = "Hide MiniMap", showText = "Show MiniMap"),
+  tiles = NULL,
+  mapOptions = list()
+)
+
+
+```
+
+
+Sitios prioritarios
+=======================================================================
+
+Column {data-width=600}
+-------------------------------------
+
+```{r}
+prioridad <- sf::st_as_sf(readxl::read_xlsx("data/Tabla de prioridad de conservación.xlsx"), coords = c('Longitud', 'Latitud'), crs = 4326)
+
+
+prioridad$labels4 <- paste0(
+  "<h3 style= 'background-color:#87683a; color: white; text-align: center; font-size: 140%; font-family:Times New Roman'> Sitio de Buceo </h3>",
+  "<b style= 'color:#263270'> Región: </b> ",
+  prioridad$Region,
+  "<br/> ",
+  "<b style= 'color:#263270'> Estado: </b> ",
+  prioridad$Estado,
+  "<br/> ",
+  "<b style= 'color:#263270'> Nombre: </b> ",
+  prioridad$`Nombre sitio de buceo`,
+  "<br/> ",
+  "<b style= 'color:#263270'> Nivel de protección: </b> ",
+  prioridad$`Nivel de proteccion}`,
+  "<br/> ",
+  "<b style= 'color:#263270'> Popularidad del sitio: </b> ",
+  prioridad$`Popularidad de los sitios`,
+  "<br/> ",
+  "<b style= 'color:#263270'> Amenaza de cambio climatico: </b> ",
+  prioridad$`Amenaza de cambio climatico`,
+  "<br/> ",
+  "<b style= 'color:#263270'> Valor turistico: </b> ",
+  prioridad$`Valor turistico`,
+  "<br/> ",
+  "<b style= 'color:#263270'> Riqueza de especies marinas: </b> ",
+  prioridad$`Riqueza de especies`,
+  "<br/> "
+) %>%
+  lapply(htmltools::HTML)
+
+
+#Create Diving Sites' marker
+diverIcon <- makeIcon(
+  iconUrl = "icons/Media/diver.png",
+  iconWidth = 30, iconHeight = 30,
+  iconAnchorX = 0, iconAnchorY = 0 
+)
+
+
+icons <- awesomeIcons(
+        icon = 'flag-outline',
+        iconColor = 'black',
+        library = 'ion')
+
+
+leaflet(to) %>%
+        addProviderTiles(providers$Esri.WorldImagery, group = "Satélite") %>%
+        addProviderTiles(providers$Esri.WorldTopoMap, group = "Mapa") %>%
+        addProviderTiles(providers$Esri.OceanBasemap, group = "Océano") %>%
+
+        setView(lat =  21.601093,
+                lng = -100.739661,
+                zoom = 5) %>%
+        addMarkers(
+                popup = ~ labels1,
+                group = "Operadores",
+                icon = operIcon
+        ) %>%
+        addPolygons(
+                data = mpa,
+                group = "AMPs",
+                weight = 2,
+                opacity = 1,
+
+                fillColor = "magma",
+                fillOpacity = 0.3,
+                color = "black",
+                dashArray = "2",
+                highlightOptions = highlightOptions(
+                        color = "#fc0330",
+                        weight = 2,
+                        bringToFront = TRUE
+                ),
+                popup = ~ labels3, 
+        ) %>%
+        addMarkers(
+                icon = diverIcon,
+                clusterOptions = markerClusterOptions(),
+                data = prioridad, 
+                group = "Sitios de Buceo",
+                popup = ~ labels4
+        ) %>% 
+        # Layers control
+        addLayersControl(
+                baseGroups = c("Satélite", "Mapa", "Ocean"),
+                overlayGroups = c("Operadores", "AMPs", "Sitios de Buceo"),
+                options = layersControlOptions(collapsed = TRUE)
+        ) %>%
+        hideGroup(c("Operadores")) %>%
+
+        setView(lat =  21.601093,
+                lng = -100.739661,
+                zoom = 5) %>% 
+
+
+    addMiniMap(
+  position = "bottomright",
+  width = 140,
+  height = 140,
+  collapsedWidth = 19,
+  collapsedHeight = 19,
+  zoomLevelOffset = -5,
+  zoomLevelFixed = FALSE,
+  centerFixed = FALSE,
+  zoomAnimation = TRUE,
+  toggleDisplay = TRUE,
+  autoToggleDisplay = FALSE,
+  minimized = FALSE,
+  aimingRectOptions = list(color = "#ff7800", weight = 1, clickable = FALSE),
+  shadowRectOptions = list(color = "#000000", weight = 1, clickable = FALSE, opacity =
+    0, fillOpacity = 0),
+  strings = list(hideText = "Hide MiniMap", showText = "Show MiniMap"),
+  tiles = NULL,
+  mapOptions = list()
+)
+
+```
+
+Column {data-width=400}
+-------------------------------------
+
+```{r}
+library(DT)
+DT::datatable(dplyr::select(as.data.frame(prioridad), -geometry),
+  rownames = FALSE, options = list(pageLength = 10)
+)
+```
+
+Cuanto es protegida la Zona Economica Exclusiva de México?
+=======================================================================
+
+```{r include= FALSE}
+mpa_layer <- st_read("shp/final_mpa_layer.shp")
+
+
+mpa_metadata <- read.csv("shp/MPA_metadata.csv", na.strings = "")
+
+mpa_layer <- mpa_layer %>% 
+        select(ANP, ID, nombre_1)
+
+final_mpa <- merge(mpa_layer, mpa_metadata, by = c("ID", "ANP"))
+
+final_mpa$Pesca <- replace_na(final_mpa$Pesca, "NA")
+
+final_mpa$Pesca <- factor(final_mpa$Pesca, levels = c("NA", "ND", "NO", "SI"), labels = c("Sin manejo", "No especificado", "Pesca Prohibida", "Pesca Permitida"))
+
+final_mpa$Buceo <- replace_na(final_mpa$Buceo, "NA")
+
+final_mpa$Buceo <- factor(final_mpa$Buceo, levels = c("NA", "ND", "NO", "SI"), labels = c("Sin manejo", "No especificado", "Prohibido", "Permitido"))
+
+EEZ <- 3269386
+
+area <- final_mpa %>%                 
+                select(ID, Pesca) %>% 
+                mutate(Area = set_units(st_area(.), km^2)) %>% 
+                group_by(Pesca) %>% 
+                summarise(Area = sum(Area)) %>%
+                as.data.frame() %>% 
+                select(-geometry) %>% 
+                mutate(Area_dbl = as.double(Area)) %>% 
+                mutate(Area_perc_eez = (Area_dbl/EEZ)*100) %>%
+                mutate(EEZ = rep("EEZ area", 4)) %>% 
+                filter(Pesca != "No especificado") %>% 
+                ungroup() %>% 
+                mutate(tot_perc = sum(Area_perc_eez)) %>%
+                add_row(Pesca = "No Protegido", Area = NA, Area_dbl = 3269386, Area_perc_eez = 100 - 21.78272, EEZ = "EEZ area", tot_perc = 100)  
+
+
+```
+
+```{r graph_7, fig.height=5, fig.width=7}
+area$label <- paste(paste(area$Pesca, round(area$Area_perc_eez, 2), sep = ", "), " %")
+
+
+renderPlot({
+  treemap::treemap(
+    area,
+    index = "label",
+    vSize = "Area_perc_eez",
+    type = "index",
+    fontsize.labels = 33,
+    fontcolor.labels = "white",
+    fontface.labels = 1,
+    fontfamily.labels = "Times New Roman",
+    #align.labels = "center",
+    overlap.labels = 1,
+    inflate.labels = FALSE,
+    title = "Área Total: ZEE mexicana",
+    fontfamily.title = "Times New Roman",
+    fontsize.title = 36,
+    border.col = c("black", "white"),
+    border.lwds = c(5, 2),
+    palette = "Spectral",
+    force.print.labels = FALSE,
+    xmod.labels = 0,
+    bg.labels = c("white"),
+    position.legend = "bottom",
+    fontfamily.legend = "Times New Roman",
+    fontsize.legend = 33
+  )
+})
+```
+
+
+Créditos
+=======================================================================
+        
+### Acerca del proyecto
+
+Este trabajo pertenece a la iniciativa del Atlas de Buceo en México, un proyecto donde instituciones internacionales están colaborando, entre las cuales se incluyen: Scripps Institution of Oceanography (EU), Gulf of California Marine Programa (EU), Centro para la Biodiversidad Marina y la Conservación A.C. (México), Universidad Autónoma de Baja California Sur (México), Senckenberg Institute (Alemania).
+
+### Fuente de datos
+
+- La capa mexicana de AMP's se encuentra bajo desarrollo; los datos originales se obtuvieron desde: http://sig.conanp.gob.mx/website/pagsig/info_shape.htm
+
+### Interfaz, creación de datos: 
+
+- Dr. Fabio Favoretto (UABCS-CBMC);
+- Eduardo León Solórzano (UABCS);
+- Eduardo Peláez Torres (UABCS);
+
+### Creación de datos:
+
+- Joy Kumagai (Senckenberg);
+- Terrance Wang (NOAA);
+- Norman Blanco Lupio (CBMC);
+
+
+### Supervisión del proyecto: 
+
+- Marisol Placencia de la Cruz (CBMC); 
+- Octavio Aburto Oropeza (SIO); 
+- Catalina López Sagastégui (UC-Mexus);
+
+
+
+
+
+
