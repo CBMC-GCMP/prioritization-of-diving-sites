@@ -1,5 +1,6 @@
 ---
-title: "Áreas Prioritarias para Conservación de Sitios de Buceo en Méx"
+title: "Areas Prioritarias para la Conservacion de los Sitios de Buceo en Me
+xico"
 resource_files:
 - "shp/Diving_sites_v1.0_01032021/dive_sites.shx"
 - "shp/Diving_sites_v1.0_01032021/dive_sites.prj"
@@ -14,11 +15,12 @@ resource_files:
 - "shp/MPA_MX_v1.0_01032021/MPA_MX_c1-0.prj" 
 - "shp/MPA_MX_v1.0_01032021/MPA_MX_c1-0.dbf" 
 
+
 runtime: shiny
 output:
-        flexdashboard::flex_dashboard:
-        source_code: embed
-        theme: bootstrap
+  flexdashboard::flex_dashboard:
+  source_code: embed
+  theme: bootstrap
 ---
 
 Mapa General
@@ -193,8 +195,9 @@ Sitios prioritarios
 Column {data-width=600}
 -------------------------------------
 
+### Mapa 
 ```{r}
-prioridad <- sf::st_as_sf(readxl::read_xlsx("data/Tabla de prioridad de conservación.xlsx"), coords = c('Longitud', 'Latitud'), crs = 4326)
+prioridad <- sf::st_as_sf(readxl::read_xlsx("data/tabla_prioridad.xlsx"), coords = c('Longitud', 'Latitud'), crs = 4326)
 
 
 prioridad$labels4 <- paste0(
@@ -242,9 +245,7 @@ icons <- awesomeIcons(
 
 
 leaflet(to) %>%
-        addProviderTiles(providers$Esri.WorldImagery, group = "Satélite") %>%
         addProviderTiles(providers$Esri.WorldTopoMap, group = "Mapa") %>%
-        addProviderTiles(providers$Esri.OceanBasemap, group = "Océano") %>%
 
         setView(lat =  21.601093,
                 lng = -100.739661,
@@ -280,7 +281,7 @@ leaflet(to) %>%
         ) %>% 
         # Layers control
         addLayersControl(
-                baseGroups = c("Satélite", "Mapa", "Ocean"),
+                baseGroups = c("Mapa"),
                 overlayGroups = c("Operadores", "AMPs", "Sitios de Buceo"),
                 options = layersControlOptions(collapsed = TRUE)
         ) %>%
@@ -288,7 +289,7 @@ leaflet(to) %>%
 
         setView(lat =  21.601093,
                 lng = -100.739661,
-                zoom = 5) %>% 
+                zoom = 3) %>% 
 
 
     addMiniMap(
@@ -317,9 +318,10 @@ leaflet(to) %>%
 Column {data-width=400}
 -------------------------------------
 
+### Metadatos
 ```{r}
 library(DT)
-DT::datatable(dplyr::select(as.data.frame(prioridad), -geometry),
+DT::datatable(dplyr::select(as.data.frame(prioridad), -c(geometry, labels4)),
   rownames = FALSE, options = list(pageLength = 10)
 )
 ```
